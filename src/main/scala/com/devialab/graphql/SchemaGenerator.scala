@@ -9,12 +9,21 @@ import com.devialab.graphql.IDL.{Directive, FieldType}
 import com.devialab.graphql.SchemaGenerator.DirectiveProvider
 import com.devialab.graphql.annotation.WrapperGenericType
 import grizzled.slf4j.Logging
+import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner
 
 
 /**
   * @author Alexander De Leon (alex.deleon@devialab.com)
   */
-class SchemaGenerator(idlWriter: IDLWriter) extends Logging{
+class SchemaGenerator(idlWriter: IDLWriter) extends Logging {
+
+  def generateIDL(packageName: String, filter: (Class[_] => Boolean) , directiveProviders: DirectiveProvider*): Unit = {
+    val scanner = new FastClasspathScanner(packageName)
+    var classes = Seq.empty[Class[_]]
+    scanner.matchAllStandardClasses(classes :+= _)
+    scanner.scan()
+    generateIDL(classes.filter(filter), directiveProviders:_*)
+  }
 
   def generateIDL(c: Class[_], directiveProviders: DirectiveProvider*): Unit = {
     generateIDL(Seq(c), directiveProviders:_*)
@@ -28,6 +37,7 @@ class SchemaGenerator(idlWriter: IDLWriter) extends Logging{
   }
 
   private def doGenerateIDL(c: Class[_], directiveProviders: DirectiveProvider*): Set[Class[_]]  = {
+    debug(s"Generating IDL for $c")
     var customClasses = Set.empty[Class[_]]
     val info = Introspector.getBeanInfo(c)
     idlWriter.startType(info.getBeanDescriptor.getName)
