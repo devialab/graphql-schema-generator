@@ -2,7 +2,7 @@ organization := "com.devialab"
 
 name := "graphql-schema-generator"
 
-version := "0.0.1"
+version := "0.0.1-SNAPSHOT"
 
 scalaVersion := "2.12.3"
 
@@ -19,5 +19,7 @@ libraryDependencies ++= Seq(
   "org.scalamock" %% "scalamock-scalatest-support" % "3.6.0" % "test",
   "ch.qos.logback" % "logback-classic" % "1.1.3" % "test"
 )
+
+publishMavenStyle := true
 
 compileOrder := CompileOrder.JavaThenScala
