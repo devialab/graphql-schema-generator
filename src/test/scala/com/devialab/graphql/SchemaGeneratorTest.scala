@@ -1,8 +1,7 @@
 package com.devialab.graphql
 
 import com.devialab.graphql.IDL.CustomType
-import com.devialab.graphql.test.{TestJavaBean, TestLombokJavaBean}
-import com.devialab.graphql.test.TestCaseClass
+import com.devialab.graphql.test.{TestCaseClass, TestCustomTypeCaseClass, TestJavaBean, TestLombokJavaBean}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{FunSuite, Matchers}
 
@@ -27,9 +26,13 @@ class SchemaGeneratorTest extends FunSuite with Matchers with MockFactory {
     (mockWriter.writeField _).expects("float", IDL.Float(true), *).once()
     (mockWriter.writeField _).expects("double", IDL.Float(true), *).once()
     (mockWriter.writeField _).expects("optionString", IDL.String(false), *).once()
-    (mockWriter.writeField _).expects("customType", IDL.CustomType("TestCustomTypeCaseClass", false), *).once()
-    (mockWriter.endType _).expects().once()
+    (mockWriter.writeField _).expects("customType", IDL.CustomType("TestCustomTypeCaseClass", false, Some(classOf[TestCustomTypeCaseClass])), *).once()
 
+
+    (mockWriter.startType _).expects("TestCustomTypeCaseClass").once()
+    (mockWriter.writeField _).expects("string2", IDL.String(false), *).once()
+
+    (mockWriter.endType _).expects().twice()
 
     generator.generateIDL(classOf[TestCaseClass])
 
@@ -52,6 +55,9 @@ class SchemaGeneratorTest extends FunSuite with Matchers with MockFactory {
     (mockWriter.writeField _).expects("floatValue", IDL.Float(true), *).once()
     (mockWriter.writeField _).expects("doubleValue", IDL.Float(true), *).once()
     (mockWriter.writeField _).expects("booleanValue", IDL.Boolean(true), *).once()
+    (mockWriter.writeField _).expects("javaList", IDL.List(IDL.String(false), false), *).once()
+    (mockWriter.writeField _).expects("javaArray", IDL.List(IDL.String(false), false), *).once()
+    (mockWriter.writeField _).expects("javaWrapper", IDL.String(false), *).once()
 
     (mockWriter.writeField _).expects("privateField", *, *).never()
     (mockWriter.endType _).expects().once()
@@ -88,8 +94,12 @@ class SchemaGeneratorTest extends FunSuite with Matchers with MockFactory {
     (mockWriter.writeField _).expects("float", IDL.Float(true), *).once()
     (mockWriter.writeField _).expects("double", IDL.Float(true), *).once()
     (mockWriter.writeField _).expects("optionString", IDL.String(false), *).once()
-    (mockWriter.writeField _).expects("customType", IDL.CustomType("TestCustomTypeCaseClass", false), Seq(IDL.Directive("out", Map("name" -> "customType")))).once()
-    (mockWriter.endType _).expects().once()
+    (mockWriter.writeField _).expects("customType", IDL.CustomType("TestCustomTypeCaseClass", false, Some(classOf[TestCustomTypeCaseClass])), Seq(IDL.Directive("out", Map("name" -> "customType")))).once()
+
+    (mockWriter.startType _).expects("TestCustomTypeCaseClass").once()
+    (mockWriter.writeField _).expects("string2", IDL.String(false), *).once()
+
+    (mockWriter.endType _).expects().twice()
 
 
     generator.generateIDL(classOf[TestCaseClass], provider)

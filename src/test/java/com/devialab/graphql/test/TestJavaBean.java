@@ -3,6 +3,7 @@ package com.devialab.graphql.test;
 import lombok.NonNull;
 
 import javax.validation.constraints.NotNull;
+import java.util.List;
 
 /**
  * @author Alexander De Leon (alex.deleon@devialab.com)
@@ -20,6 +21,9 @@ public class TestJavaBean {
     private boolean booleanValue;
     private String notNullableString;
     private final String inmutableString;
+    private List<String> javaList;
+    private String[] javaArray;
+    private TestJavaWrapper<String> javaWrapper;
 
     private String privateField;
 
@@ -111,5 +115,29 @@ public class TestJavaBean {
 
     public void setIntegerValue(Integer integerValue) {
         this.integerValue = integerValue;
+    }
+
+    public List<String> getJavaList() {
+        return javaList;
+    }
+
+    public void setJavaList(List<String> javaList) {
+        this.javaList = javaList;
+    }
+
+    public String[] getJavaArray() {
+        return javaArray;
+    }
+
+    public void setJavaArray(String[] javaArray) {
+        this.javaArray = javaArray;
+    }
+
+    public TestJavaWrapper<String> getJavaWrapper() {
+        return javaWrapper;
+    }
+
+    public void setJavaWrapper(TestJavaWrapper<String> javaWrapper) {
+        this.javaWrapper = javaWrapper;
     }
 }

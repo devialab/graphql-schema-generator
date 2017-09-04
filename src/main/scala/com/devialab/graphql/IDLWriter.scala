@@ -13,6 +13,7 @@ class IDLWriter(writer: BufferedWriter) {
   def startType(name: String): IDLWriter = {
     if(!isReady) throw new IllegalStateException(s"Cannot start a type while in $state state. Expected state to be Ready")
     writer.write(s"type $name {\n")
+    state = State.TypeStarted
     this
   }
 
@@ -20,7 +21,6 @@ class IDLWriter(writer: BufferedWriter) {
   def writeField(field: String, `type`: IDL.FieldType, directives: IDL.Directive*): IDLWriter = {
     if(state != State.TypeStarted) throw new IllegalStateException(s"Cannot write field while in $state state. Expected state to be TypeStarted")
     writer.write(s"\t$field: ${`type`} ${directives.map(_.toString).mkString(" ")}\n")
-    state = State.TypeStarted
     this
   }
 
