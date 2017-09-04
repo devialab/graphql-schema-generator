@@ -32,12 +32,41 @@ class IDLWriter(writer: BufferedWriter) {
     this
   }
 
+  @throws[IllegalStateException]
+  def startEnum(name: String): IDLWriter = {
+    if(!isReady) throw new IllegalStateException(s"Cannot start an enum while in $state state. Expected state to be Ready")
+    writer.write(s"enum $name {\n")
+    state = State.EnumStarted
+    this
+  }
+
+  @throws[IllegalStateException]
+  def writeEnumValue(value: String): IDLWriter = {
+    if(state != State.EnumStarted && state != State.FirsEnumValueWritten) throw new IllegalStateException(s"Cannot write enum value while in $state state. Expected state to be EnumStarted or FirsEnumValueWritten")
+    if(state == State.FirsEnumValueWritten) {
+      writer.write(",\n")
+    }
+    else {
+      state = State.FirsEnumValueWritten
+    }
+    writer.write(s"\t$value")
+    this
+  }
+
+  @throws[IllegalStateException]
+  def endEnum(): IDLWriter = {
+    if(state != State.EnumStarted && state != State.FirsEnumValueWritten) throw new IllegalStateException(s"Cannot end a type while in $state state. Expected state to be EnumStarted")
+    writer.write("\n}\n")
+    state = State.Ready
+    this
+  }
+
   def isReady: Boolean = state == State.Ready
 
 }
 
 object IDLWriter {
   object State extends Enumeration {
-    val Ready, TypeStarted = Value
+    val Ready, TypeStarted, EnumStarted, FirsEnumValueWritten = Value
   }
 }

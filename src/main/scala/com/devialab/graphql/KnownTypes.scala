@@ -1,6 +1,7 @@
 package com.devialab.graphql
 
 import java.time.LocalDateTime
+import java.util.Date
 
 import com.devialab.graphql.IDL.FieldType
 
@@ -10,8 +11,12 @@ import com.devialab.graphql.IDL.FieldType
 object KnownTypes {
 
   def get(c: Class[_]): Option[FieldType] = c match {
-    case localDateTime if classOf[LocalDateTime].isAssignableFrom(localDateTime) => Some(IDL.String())
+    case date if isDate(c) => Some(IDL.String())
     case _ => None
   }
+
+  private def isDate(c: Class[_]): Boolean =
+    classOf[LocalDateTime].isAssignableFrom(c) ||
+    classOf[Date].isAssignableFrom(c)
 
 }

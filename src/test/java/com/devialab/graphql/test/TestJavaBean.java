@@ -24,6 +24,7 @@ public class TestJavaBean {
     private List<String> javaList;
     private String[] javaArray;
     private TestJavaWrapper<String> javaWrapper;
+    private TestJavaEnum javaEnum;
 
     private String privateField;
 
@@ -139,5 +140,13 @@ public class TestJavaBean {
 
     public void setJavaWrapper(TestJavaWrapper<String> javaWrapper) {
         this.javaWrapper = javaWrapper;
+    }
+
+    public TestJavaEnum getJavaEnum() {
+        return javaEnum;
+    }
+
+    public void setJavaEnum(TestJavaEnum javaEnum) {
+        this.javaEnum = javaEnum;
     }
 }

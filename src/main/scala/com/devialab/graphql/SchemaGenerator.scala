@@ -31,30 +31,40 @@ class SchemaGenerator(idlWriter: IDLWriter) extends Logging {
 
   def generateIDL(classes: Seq[Class[_]], directiveProviders: DirectiveProvider*): Unit = {
     var classesToProcess = classes.toSet
+    var processedClasses = Set.empty[Class[_]]
     while(classesToProcess.nonEmpty) {
-      classesToProcess = classesToProcess.tail ++ doGenerateIDL(classesToProcess.head, directiveProviders:_*)
+      val c = classesToProcess.head
+      classesToProcess = classesToProcess.tail ++ (doGenerateIDL(c, directiveProviders:_*) diff processedClasses)
+      processedClasses += c
     }
   }
 
   private def doGenerateIDL(c: Class[_], directiveProviders: DirectiveProvider*): Set[Class[_]]  = {
     debug(s"Generating IDL for $c")
     var customClasses = Set.empty[Class[_]]
-    val info = Introspector.getBeanInfo(c)
-    idlWriter.startType(info.getBeanDescriptor.getName)
-    val processedProperties = info.getPropertyDescriptors.map(prop => {
-      writeField(prop, directiveProviders:_*) match {
-        case Some(IDL.CustomType(_, _, Some(c))) => customClasses += c
-        case _ => //nothing to do if not custom
-      }
-      prop.getName
-    })
-    c.getDeclaredFields
-      .filter(f => !processedProperties.contains(f.getName) && (ScalaUtil.isCaseClass(c) || Modifier.isPublic(f.getModifiers)))
-      .foreach(f => writeField(f, directiveProviders:_*) match {
-        case Some(IDL.CustomType(_, _, Some(c))) => customClasses += c
-        case _ => //nothing to do if not custom
-      })
-    idlWriter.endType()
+    c match {
+      case javaEnum if classOf[Enum[_]].isAssignableFrom(javaEnum) =>
+        idlWriter.startEnum(javaEnum.getSimpleName)
+        c.getEnumConstants.foreach(const => idlWriter.writeEnumValue(classOf[Enum[_]].cast(const).name()))
+        idlWriter.endEnum()
+      case _ =>
+        val info = Introspector.getBeanInfo(c)
+        idlWriter.startType(info.getBeanDescriptor.getName)
+        val processedProperties = info.getPropertyDescriptors.map(prop => {
+          writeField(prop, directiveProviders:_*) match {
+            case Some(IDL.CustomType(_, _, Some(c))) => customClasses += c
+            case _ => //nothing to do if not custom
+          }
+          prop.getName
+        })
+        c.getDeclaredFields
+          .filter(f => !processedProperties.contains(f.getName) && (ScalaUtil.isCaseClass(c) || Modifier.isPublic(f.getModifiers)))
+          .foreach(f => writeField(f, directiveProviders:_*) match {
+            case Some(IDL.CustomType(_, _, Some(c))) => customClasses += c
+            case _ => //nothing to do if not custom
+          })
+        idlWriter.endType()
+    }
     customClasses
   }
 
@@ -104,6 +114,7 @@ class SchemaGenerator(idlWriter: IDLWriter) extends Logging {
         genericArgumentType(genericType, wrapper.getAnnotation(classOf[WrapperGenericType]).typeArgument())
           .flatMap(generic => castTypeToClass(generic).map((_, generic)))
           .flatMap({case (argClass, generic) => fieldType(argClass, generic, isNotNull(argClass)) })
+      case javaEnum if classOf[Enum[_]].isAssignableFrom(javaEnum) => Some(IDL.CustomType(javaEnum.getSimpleName, false, Some(javaEnum)))
       case customType if isNotIgnored(customType) => beanName(customType).map(name => IDL.CustomType(name, nonNull, Some(customType)))
       case _ =>
         warn(s"Skiping type $c")

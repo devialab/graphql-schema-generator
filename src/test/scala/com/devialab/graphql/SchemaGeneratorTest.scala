@@ -1,7 +1,7 @@
 package com.devialab.graphql
 
 import com.devialab.graphql.IDL.CustomType
-import com.devialab.graphql.test.{TestCaseClass, TestCustomTypeCaseClass, TestJavaBean, TestLombokJavaBean}
+import com.devialab.graphql.test._
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{FunSuite, Matchers}
 
@@ -58,9 +58,15 @@ class SchemaGeneratorTest extends FunSuite with Matchers with MockFactory {
     (mockWriter.writeField _).expects("javaList", IDL.List(IDL.String(false), false), *).once()
     (mockWriter.writeField _).expects("javaArray", IDL.List(IDL.String(false), false), *).once()
     (mockWriter.writeField _).expects("javaWrapper", IDL.String(false), *).once()
+    (mockWriter.writeField _).expects("javaEnum", IDL.CustomType("TestJavaEnum", false, Some(classOf[TestJavaEnum])), *).once()
 
     (mockWriter.writeField _).expects("privateField", *, *).never()
     (mockWriter.endType _).expects().once()
+
+    (mockWriter.startEnum _).expects("TestJavaEnum").once()
+    (mockWriter.writeEnumValue _).expects("VALUE_1").once()
+    (mockWriter.writeEnumValue _).expects("VALUE_2").once()
+    (mockWriter.endEnum _).expects().once()
 
     generator.generateIDL(classOf[TestJavaBean])
   }
