@@ -8,7 +8,8 @@ import com.devialab.graphql.IDL.CustomType
 object Directives {
 
   val Neo4JOutRelationship: SchemaGenerator.DirectiveProvider = {
-    case (field: String, fieldType: CustomType) => Some(IDL.Directive("out", Map("name" -> field)))
+    case (field: String, _: CustomType | IDL.List(_: CustomType, _)) =>
+      Some(IDL.Directive("out", Map("name" -> field)))
     case _ => None
   }
 
