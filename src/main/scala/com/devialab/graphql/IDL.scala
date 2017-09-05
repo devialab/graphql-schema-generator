@@ -27,7 +27,7 @@ object IDL {
   }
 
   case class Directive(name: Predef.String, properties: Map[Predef.String, Predef.String] = Map.empty) {
-    override def toString: Predef.String = s"@$name(${properties.map({ case (k,v) => s""""$k":"$v""""}).mkString(" ")})"
+    override def toString: Predef.String = s"@$name(${properties.map({ case (k,v) => s"""$k:"$v""""}).mkString(" ")})"
   }
 
 }
