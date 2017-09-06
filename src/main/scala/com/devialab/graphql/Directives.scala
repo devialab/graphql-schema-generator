@@ -9,7 +9,7 @@ object Directives {
 
   val Neo4JOutRelationship: SchemaGenerator.DirectiveProvider = {
     case (field: String, _: CustomType | IDL.List(_: CustomType, _)) =>
-      Some(IDL.Directive("out", Map("name" -> field)))
+      Some(IDL.Directive("relation", Map("name" -> field, "direction" -> "OUT")))
     case _ => None
   }
 
