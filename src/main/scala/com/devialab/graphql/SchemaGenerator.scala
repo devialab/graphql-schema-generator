@@ -6,11 +6,10 @@ import java.util.Optional
 import javax.validation.constraints.NotNull
 
 import com.devialab.graphql.IDL.{Directive, FieldType}
-import com.devialab.graphql.SchemaGenerator.DirectiveProvider
-import com.devialab.graphql.annotation.WrapperGenericType
+import com.devialab.graphql.SchemaGenerator._
+import com.devialab.graphql.annotation.{GraphqlField, GraphqlId, WrapperGenericType}
 import grizzled.slf4j.Logging
 import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner
-
 
 /**
   * @author Alexander De Leon (alex.deleon@devialab.com)
@@ -50,6 +49,14 @@ class SchemaGenerator(idlWriter: IDLWriter) extends Logging {
       case _ =>
         val info = Introspector.getBeanInfo(c)
         idlWriter.startType(info.getBeanDescriptor.getName)
+        c.getAnnotationsByType(classOf[GraphqlField]).foreach((staticField) => {
+          if(staticField.`type`() == GraphqlField.NULL) {
+            warn(s"Missing type for static field ${staticField.value()} defined in class ${c.getName}. Ignoring static field declaration")
+          }
+          else {
+            idlWriter.writeStaticField(staticField.value(), staticField.`type`())
+          }
+        })
         val processedProperties = info.getPropertyDescriptors.map(prop => {
           writeField(prop, directiveProviders:_*) match {
             case Some(IDL.CustomType(_, _, Some(c))) => customClasses += c
@@ -68,31 +75,78 @@ class SchemaGenerator(idlWriter: IDLWriter) extends Logging {
     customClasses
   }
 
-  private def writeField(property: PropertyDescriptor, directiveProviders: DirectiveProvider*): Option[FieldType] = {
-    debug(s"Processing property ${property.getName}")
-    fieldType(property.getPropertyType, property.getReadMethod.getGenericReturnType, isNotNull(property)) match {
+  private def writeField[T: FieldDescriptor](property: T, directiveProviders: DirectiveProvider*): Option[FieldType] = {
+    debug(s"Processing property ${property.name}")
+    property.fieldType match {
       case Some(fieldType) =>
-        idlWriter.writeField(property.getName, fieldType, directiveProviders.flatMap(f => f(property.getName, fieldType)):_*)
+        idlWriter.writeField(property.name, fieldType, directiveProviders.flatMap(f => f(property.name, fieldType)): _*)
         Some(fieldType)
       case None =>
-        warn(s"Ignoring property ${property.getName}")
+        warn(s"Ignoring property ${property.name}")
         None
     }
   }
+}
+object SchemaGenerator {
 
-  private def writeField(property: Field, directiveProviders: DirectiveProvider*): Option[FieldType] = {
-    debug(s"Processing property ${property.getName}")
-    fieldType(property.getType, property.getGenericType, isNotNull(property)) match {
-      case Some(fieldType) =>
-        idlWriter.writeField(property.getName, fieldType, directiveProviders.flatMap(f => f(property.getName, fieldType)):_*)
-        Some(fieldType)
-      case None =>
-        warn(s"Ignoring property ${property.getName}")
-        None
-    }
+  type DirectiveProvider = ((String, FieldType) => Option[Directive])
+
+  def apply(idlWriter: IDLWriter): SchemaGenerator = new SchemaGenerator(idlWriter)
+
+  implicit class FieldDescriptorOps[T: FieldDescriptor](obj: T) {
+    def name: String = FieldDescriptor[T].name(obj)
+    def fieldType: Option[FieldType] = FieldDescriptor[T].fieldType(obj)
+  }
+}
+
+trait FieldDescriptor[T] {
+  def name(obj: T): String
+  def fieldType(obj: T): Option[FieldType]
+}
+
+object FieldDescriptor extends Logging {
+
+  def apply[A](implicit fieldDescriptor: FieldDescriptor[A]): FieldDescriptor[A] = fieldDescriptor
+
+  implicit val ofField: FieldDescriptor[Field] = new FieldDescriptor[Field] {
+    override def name(obj: Field): String =  nameFromAnnotation(obj).getOrElse(obj.getName)
+    override def fieldType(obj: Field): Option[FieldType] =
+      if(isID(obj)) Some(IDL.ID(isNotNull(obj)))
+      else findFieldType(obj.getType, obj.getGenericType, isNotNull(obj))
   }
 
-  private def fieldType(c: Class[_], genericType: Type, nonNull: Boolean): Option[IDL.FieldType] = {
+  implicit val ofPropertyDescriptor: FieldDescriptor[PropertyDescriptor] = new FieldDescriptor[PropertyDescriptor] {
+    override def name(obj: PropertyDescriptor): String = nameFromAnnotation(obj.getReadMethod).getOrElse(obj.getName)
+    override def fieldType(obj: PropertyDescriptor): Option[FieldType] =
+      if(isID(obj.getReadMethod)) Some(IDL.ID(isNotNull(obj)))
+      else findFieldType(obj.getPropertyType, obj.getReadMethod.getGenericReturnType, isNotNull(obj))
+  }
+
+  private def nameFromAnnotation(obj: AccessibleObject): Option[String] = obj match {
+    case field: Field => Option(field.getAnnotation(classOf[GraphqlField])).map(_.value())
+    case method: Method => AnnotationUtils.findAnnotation(method, classOf[GraphqlField]).map(_.value())
+    case _ => None
+  }
+
+  private def isID(obj: AccessibleObject): Boolean = obj match {
+    case field: Field => field.isAnnotationPresent(classOf[GraphqlId])
+    case method: Method => AnnotationUtils.findAnnotation(method, classOf[GraphqlId]).isDefined
+    case _ => false
+  }
+
+  private def isNotNull(c: Class[_]): Boolean = c.isPrimitive
+
+  private def isNotNull(property: PropertyDescriptor): Boolean =
+    isNotNull(property.getPropertyType) || isNotNull(property.getReadMethod) || isNotNull(property.getWriteMethod) || LombokUtils.isNonNull(property)
+
+  private def isNotNull(obj: AccessibleObject): Boolean =
+    isPrimitiveField(obj) || Option(obj).exists(_.isAnnotationPresent(classOf[NotNull]))
+
+  private def isPrimitiveField(obj: AccessibleObject): Boolean = {
+    Option(obj).exists(x => x.isInstanceOf[Field] && classOf[Field].cast(x).getType.isPrimitive)
+  }
+
+  private def findFieldType(c: Class[_], genericType: Type, nonNull: Boolean): Option[IDL.FieldType] = {
     debug(s"Computing field type for class $c and genericType $genericType")
     c match {
       case knownType if KnownTypes.get(knownType).isDefined => KnownTypes.get(knownType)
@@ -103,17 +157,17 @@ class SchemaGenerator(idlWriter: IDLWriter) extends Logging {
       case option if classOf[Option[_]].isAssignableFrom(option) || classOf[Optional[_]].isAssignableFrom(option) =>
         genericArgumentType(genericType)
           .flatMap(generic => castTypeToClass(generic).map((_, generic)))
-          .flatMap({case (argClass, generic) => fieldType(argClass, generic, false) })
-      case array if array.isArray => fieldType(array.getComponentType, null, isNotNull(array.getComponentType)).map(IDL.List(_, nonNull))
+          .flatMap({case (argClass, generic) => findFieldType(argClass, generic, false) })
+      case array if array.isArray => findFieldType(array.getComponentType, null, isNotNull(array.getComponentType)).map(IDL.List(_, nonNull))
       case iterable if isList(iterable) =>
         genericArgumentType(genericType)
           .flatMap(generic => castTypeToClass(generic).map((_, generic)))
-          .flatMap({case (argClass, generic) =>  fieldType(argClass, generic, isNotNull(argClass)) })
+          .flatMap({case (argClass, generic) =>  findFieldType(argClass, generic, isNotNull(argClass)) })
           .map(IDL.List(_, nonNull))
       case wrapper if wrapper.isAnnotationPresent(classOf[WrapperGenericType]) =>
         genericArgumentType(genericType, wrapper.getAnnotation(classOf[WrapperGenericType]).typeArgument())
           .flatMap(generic => castTypeToClass(generic).map((_, generic)))
-          .flatMap({case (argClass, generic) => fieldType(argClass, generic, isNotNull(argClass)) })
+          .flatMap({case (argClass, generic) => findFieldType(argClass, generic, isNotNull(argClass)) })
       case javaEnum if classOf[Enum[_]].isAssignableFrom(javaEnum) => Some(IDL.CustomType(javaEnum.getSimpleName, false, Some(javaEnum)))
       case customType if isNotIgnored(customType) => beanName(customType).map(name => IDL.CustomType(name, nonNull, Some(customType)))
       case _ =>
@@ -131,7 +185,7 @@ class SchemaGenerator(idlWriter: IDLWriter) extends Logging {
 
   private def isList(iterable: Class[_]): Boolean =
     classOf[Iterable[_]].isAssignableFrom(iterable) ||
-    classOf[java.lang.Iterable[_]].isAssignableFrom(iterable)
+      classOf[java.lang.Iterable[_]].isAssignableFrom(iterable)
 
   private def isInt(int: Class[_]): Boolean =
     classOf[Long].isAssignableFrom(int) ||
@@ -175,21 +229,4 @@ class SchemaGenerator(idlWriter: IDLWriter) extends Logging {
     }
   }
 
-  private def isNotNull(c: Class[_]): Boolean = c.isPrimitive
-
-  private def isNotNull(property: PropertyDescriptor): Boolean =
-    isNotNull(property.getPropertyType) || isNotNull(property.getReadMethod) || isNotNull(property.getWriteMethod) || LombokUtils.isNonNull(property)
-
-  private def isNotNull(obj: AccessibleObject): Boolean =
-    isPrimitiveField(obj) || Option(obj).exists(_.isAnnotationPresent(classOf[NotNull]))
-
-  private def isPrimitiveField(obj: AccessibleObject): Boolean = {
-    Option(obj).exists(x => x.isInstanceOf[Field] && classOf[Field].cast(x).getType.isPrimitive)
-  }
-}
-object SchemaGenerator {
-
-  type DirectiveProvider = ((String, FieldType) => Option[Directive])
-
-  def apply(idlWriter: IDLWriter): SchemaGenerator = new SchemaGenerator(idlWriter)
 }

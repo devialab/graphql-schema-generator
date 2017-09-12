@@ -25,6 +25,13 @@ class IDLWriter(writer: BufferedWriter) {
   }
 
   @throws[IllegalStateException]
+  def writeStaticField(field: String, `type`: String, directives: IDL.Directive*): IDLWriter = {
+    if(state != State.TypeStarted) throw new IllegalStateException(s"Cannot write field while in $state state. Expected state to be TypeStarted")
+    writer.write(s"\t$field: ${`type`} ${directives.map(_.toString).mkString(" ")}\n")
+    this
+  }
+
+  @throws[IllegalStateException]
   def endType(): IDLWriter = {
     if(state != State.TypeStarted) throw new IllegalStateException(s"Cannot end a type while in $state state. Expected state to be TypeStarted")
     writer.write("}\n")

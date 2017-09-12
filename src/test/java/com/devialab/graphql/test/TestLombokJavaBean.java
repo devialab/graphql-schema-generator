@@ -9,7 +9,7 @@ import lombok.NonNull;
  */
 @Data
 @Builder
-public class TestLombokJavaBean {
+public class TestLombokJavaBean extends TestJavaBaseClass {
     private String string;
 
     @NonNull

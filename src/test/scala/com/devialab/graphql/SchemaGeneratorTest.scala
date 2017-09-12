@@ -79,6 +79,7 @@ class SchemaGeneratorTest extends FunSuite with Matchers with MockFactory {
 
     (mockWriter.writeField _).expects("string", IDL.String(false), *).once()
     (mockWriter.writeField _).expects("notNullableString", IDL.String(true), *).once()
+    (mockWriter.writeField _).expects("id", IDL.ID(false), *).once()
     (mockWriter.endType _).expects().once()
 
     generator.generateIDL(classOf[TestLombokJavaBean])
@@ -100,7 +101,7 @@ class SchemaGeneratorTest extends FunSuite with Matchers with MockFactory {
     (mockWriter.writeField _).expects("float", IDL.Float(true), *).once()
     (mockWriter.writeField _).expects("double", IDL.Float(true), *).once()
     (mockWriter.writeField _).expects("optionString", IDL.String(false), *).once()
-    (mockWriter.writeField _).expects("customType", IDL.CustomType("TestCustomTypeCaseClass", false, Some(classOf[TestCustomTypeCaseClass])), Seq(IDL.Directive("out", Map("name" -> "customType")))).once()
+    (mockWriter.writeField _).expects("customType", IDL.CustomType("TestCustomTypeCaseClass", false, Some(classOf[TestCustomTypeCaseClass])), Seq(IDL.Directive("relation", Map("name" -> "customType", "direction" -> "OUT")))).once()
 
     (mockWriter.startType _).expects("TestCustomTypeCaseClass").once()
     (mockWriter.writeField _).expects("string2", IDL.String(false), *).once()
@@ -110,6 +111,22 @@ class SchemaGeneratorTest extends FunSuite with Matchers with MockFactory {
 
     generator.generateIDL(classOf[TestCaseClass], provider)
 
+  }
+
+
+  test("static field") {
+    val mockWriter = mock[IDLWriter]
+    val generator = SchemaGenerator(mockWriter)
+
+    (mockWriter.startType _).expects("TestJavaStaticFieldDefinition").once()
+
+    (mockWriter.writeStaticField _).expects("static", "String!", *).once()
+    (mockWriter.writeField _).expects("dynamic", IDL.String(false), *).once()
+    //todo:
+    //(mockWriter.writeField _).expects("annotated", IDL.String(false), *).once()
+    (mockWriter.endType _).expects().once()
+
+    generator.generateIDL(classOf[TestJavaStaticFieldDefinition])
   }
 
 }

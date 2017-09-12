@@ -14,6 +14,8 @@ libraryDependencies ++= Seq(
   "com.kdgregory.bcelx" % "bcelx" % "1.0.0",
   "org.scala-lang" % "scala-reflect" % "2.12.3",
   "io.github.lukehutch" % "fast-classpath-scanner" % "1.99.0",
+  "org.apache.commons" % "commons-lang3" % "3.6",
+
 
   // Test dependencies ----
   "org.scalatest" %% "scalatest" % "3.0.4" % "test",
