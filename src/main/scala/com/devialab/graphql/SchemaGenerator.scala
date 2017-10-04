@@ -199,7 +199,9 @@ object FieldDescriptor extends Logging {
 
   private def isFloat(float: Class[_]): Boolean =
     classOf[Float].isAssignableFrom(float) ||
-      classOf[Double].isAssignableFrom(float)
+      classOf[Double].isAssignableFrom(float) ||
+      classOf[java.lang.Float].isAssignableFrom(float) ||
+      classOf[java.lang.Double].isAssignableFrom(float)
 
   private def isBoolean(boolean: Class[_]): Boolean =
     classOf[Boolean].isAssignableFrom(boolean) ||
